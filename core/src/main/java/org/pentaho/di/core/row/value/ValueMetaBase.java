@@ -1383,12 +1383,41 @@ public class ValueMetaBase implements ValueMetaInterface {
         number = format.parse( string, parsePosition );
 
         if ( parsePosition.getIndex() < string.length() ) {
-          throw new KettleValueException( toString()
-              + " : couldn't convert String to number : non-numeric character found at position "
-              + ( parsePosition.getIndex() + 1 ) + " for value [" + string + "]" );
+          format.setGroupingUsed( true );
+          if ( lenientStringToNumber ) {
+            number = format.parse( string );
+          } else {
+            parsePosition = new ParsePosition( 0 );
+            number = format.parse( string, parsePosition );
+
+            if ( parsePosition.getIndex() < string.length() ) {
+              throw new KettleValueException( toString()
+                + " : couldn't convert String to number : non-numeric character found at position "
+                + ( parsePosition.getIndex() + 1 ) + " for value [" + string + "]" );
+            }
+          }
+          format.setGroupingUsed( false );
         }
       }
+
+      // PDI-17366: Cannot simply cast a number to a BigDecimal,
+      //            If the Number is not a BigDecimal.
+      //
+      if ( number instanceof Double ) {
+        return BigDecimal.valueOf( number.doubleValue() );
+      } else if ( number instanceof Float ) {
+        return BigDecimal.valueOf( number.floatValue() );
+      } else if ( number instanceof Integer ) {
+        return BigDecimal.valueOf( number.intValue() );
+      } else if ( number instanceof Byte ) {
+        return BigDecimal.valueOf( number.byteValue() );
+      } else if ( number instanceof Short ) {
+        return BigDecimal.valueOf( number.shortValue() );
+      } else if ( number instanceof Long ) {
+        return BigDecimal.valueOf( number.longValue() );
+      }
       return (BigDecimal) number;
+
     } catch ( Exception e ) {
       // We added this workaround for PDI-1824
       //
