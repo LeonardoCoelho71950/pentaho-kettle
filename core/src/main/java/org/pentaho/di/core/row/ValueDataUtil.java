@@ -29,7 +29,9 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.zip.Adler32;
 import java.util.zip.CRC32;
@@ -49,6 +51,8 @@ import org.pentaho.di.core.Const;
 import org.pentaho.di.core.exception.KettleFileNotFoundException;
 import org.pentaho.di.core.exception.KettleValueException;
 import org.pentaho.di.core.fileinput.CharsetToolkit;
+import org.pentaho.di.core.row.value.ValueMetaInteger;
+import org.pentaho.di.core.row.value.ValueMetaNumber;
 import org.pentaho.di.core.util.PentahoJaroWinklerDistance;
 import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.vfs.KettleVFS;
@@ -847,6 +851,7 @@ public class ValueDataUtil {
         throw new KettleValueException( "The 'divide' function only works on numeric data." );
     }
   }
+
 
   public static Double divideDoubles( Double a, Double b ) {
     return new Double( a.doubleValue() / b.doubleValue() );
@@ -2128,6 +2133,44 @@ public class ValueDataUtil {
       default : {
         throw new KettleValueException( "get zero function undefined for data type: " + type.getType() );
       }
+    }
+  }
+
+  public static void sortList( ValueMetaInterface valueMeta, List values ) {
+    Collections.sort(
+      values,
+      (n1, n2) -> {
+        try {
+          return valueMeta.compare( n1, n2 );
+        } catch ( KettleValueException e ) {
+          return 0;
+        }
+      }
+    );
+  }
+
+  public static Object percentile( ValueMetaInterface valueMeta, List values, double p, boolean nearest ) throws KettleValueException {
+    double k = p / 100;
+    double index = k * values.size();
+    sortList( valueMeta, values );
+    if ( !nearest && values.size() % ( 1 / k ) == 0 ) {
+      Object value1 = values.get( (int) index  );
+      Object value2 = values.get( (int) index - 1 );
+      if ( valueMeta.isNumber() && value1 instanceof Long) {
+        ValueMetaInterface metaInteger = new ValueMetaInteger(  );
+        value1 = valueMeta.convertData( metaInteger, value1 );
+        value2 = valueMeta.convertData( metaInteger, value2 );
+      }
+      Object sum = sum( valueMeta, value1, valueMeta, value2 );
+      return divide( valueMeta, sum, new ValueMetaInteger( "p" ), new Long( 2 ) );
+    } else {
+      index = ( nearest && index == (int) index ) ? index - 1 : index;
+      Object value = values.get( (int) index );
+      if ( valueMeta.isNumber() && value instanceof Long) {
+        ValueMetaInterface metaInteger = new ValueMetaInteger(  );
+        value = valueMeta.convertData( metaInteger, value );
+      }
+      return value;
     }
   }
 }

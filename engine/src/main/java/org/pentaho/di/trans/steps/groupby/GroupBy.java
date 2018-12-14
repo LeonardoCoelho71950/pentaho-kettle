@@ -439,7 +439,7 @@ public class GroupBy extends BaseStep implements StepInterface {
         case GroupByMeta.TYPE_GROUP_PERCENTILE:
         case GroupByMeta.TYPE_GROUP_PERCENTILE_NEAREST_RANK:
           if ( !subjMeta.isNull( subj ) ) {
-            ( (List<Double>) data.agg[ i ] ).add( subjMeta.getNumber( subj ) );
+            ( (List<Object>) data.agg[ i ] ).add( subj );
           }
           break;
         case GroupByMeta.TYPE_GROUP_STANDARD_DEVIATION:
@@ -606,9 +606,18 @@ public class GroupBy extends BaseStep implements StepInterface {
           break;
         case GroupByMeta.TYPE_GROUP_MEDIAN:
         case GroupByMeta.TYPE_GROUP_PERCENTILE:
+          if ( subjMeta.isInteger() ) {
+            vMeta = new ValueMetaNumber( meta.getAggregateField()[ i ] );
+          } else {
+            vMeta = subjMeta.clone();
+            vMeta.setName( meta.getAggregateField()[ i ] );
+          }
+          v = new ArrayList<>();
+          break;
         case GroupByMeta.TYPE_GROUP_PERCENTILE_NEAREST_RANK:
-          vMeta = new ValueMetaNumber( meta.getAggregateField()[ i ] );
-          v = new ArrayList<Double>();
+          vMeta = subjMeta.clone();
+          vMeta.setName( meta.getAggregateField()[ i ] );
+          v = new ArrayList<>();
           break;
         case GroupByMeta.TYPE_GROUP_STANDARD_DEVIATION:
         case GroupByMeta.TYPE_GROUP_STANDARD_DEVIATION_SAMPLE:
@@ -717,25 +726,19 @@ public class GroupBy extends BaseStep implements StepInterface {
             percentile = Double.parseDouble( meta.getValueField()[ i ] );
           }
           @SuppressWarnings( "unchecked" )
-          List<Double> valuesList = (List<Double>) data.agg[ i ];
-          double[] values = new double[ valuesList.size() ];
-          for ( int v = 0; v < values.length; v++ ) {
-            values[ v ] = valuesList.get( v );
-          }
-          ag = new Percentile().evaluate( values, percentile );
+          List<Object> values = (List<Object>) data.agg[ i ];
+          ValueMetaInterface valueMeta = data.aggMeta.getValueMeta( i );
+          ag = ValueDataUtil.percentile( valueMeta, values, percentile, false );
           break;
+
         case GroupByMeta.TYPE_GROUP_PERCENTILE_NEAREST_RANK:
-          double percentileValue = 50.0;
-          if ( meta.getAggregateType()[ i ] == GroupByMeta.TYPE_GROUP_PERCENTILE_NEAREST_RANK ) {
-            percentileValue = Double.parseDouble( meta.getValueField()[ i ] );
+          percentile = 50.0;
+          if ( meta.getAggregateType()[ i ] == GroupByMeta.TYPE_GROUP_PERCENTILE ) {
+            percentile = Double.parseDouble( meta.getValueField()[ i ] );
           }
-          @SuppressWarnings( "unchecked" )
-          List<Double> latenciesList = (List<Double>) data.agg[ i ];
-          Collections.sort( latenciesList );
-          Double[] latencies = new Double[ latenciesList.size() ];
-          latencies = latenciesList.toArray( latencies );
-          int index = (int) Math.ceil( ( percentileValue / 100 ) * latencies.length );
-          ag = latencies[ index - 1 ];
+          values = (List<Object>) data.agg[ i ];
+          valueMeta = data.aggMeta.getValueMeta( i );
+          ag = ValueDataUtil.percentile( valueMeta, values, percentile, true );
           break;
         case GroupByMeta.TYPE_GROUP_COUNT_ANY:
         case GroupByMeta.TYPE_GROUP_COUNT_ALL:

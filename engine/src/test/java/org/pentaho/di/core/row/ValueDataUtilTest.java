@@ -35,7 +35,9 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 import org.junit.BeforeClass;
@@ -45,6 +47,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.pentaho.di.core.exception.KettleFileNotFoundException;
 import org.pentaho.di.core.row.value.ValueMetaBigNumber;
+import org.pentaho.di.core.row.value.ValueMetaNumber;
 import org.pentaho.di.core.util.Utils;
 import org.pentaho.di.core.KettleEnvironment;
 import org.pentaho.di.core.exception.KettleException;
@@ -1284,5 +1287,285 @@ public class ValueDataUtilTest {
     } catch ( KettlePluginException e ) {
       throw new RuntimeException( e );
     }
+  }
+
+  @Test
+  public void testMedian() throws KettleValueException {
+    testMedianWithIntegers();
+    testMedianWithNumbers();
+    testMedianWithBigDecimals();
+  }
+
+  private void testMedianWithIntegers() throws KettleValueException {
+    ValueMetaInterface metaInteger = new ValueMetaInteger();
+    metaInteger.setName( "value_median" );
+
+    List<Long> longValues = new ArrayList<>();
+    longValues.add( Long.valueOf( 3 ) );
+    longValues.add( Long.valueOf( 5 ) );
+    longValues.add( Long.valueOf( 7 ) );
+    longValues.add( Long.valueOf( 12 ) );
+    longValues.add( Long.valueOf( 13 ) );
+    longValues.add( Long.valueOf( 14 ) );
+    longValues.add( Long.valueOf( 21 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 29 ) );
+    longValues.add( Long.valueOf( 39 ) );
+    longValues.add( Long.valueOf( 40 ) );
+    longValues.add( Long.valueOf( 56 ) );
+
+    Long median = (Long) ValueDataUtil.percentile( metaInteger, longValues, 50.0, false );
+    assertTrue( metaInteger.compare( Long.valueOf( 23 ), median ) == 0 );
+
+    longValues = new ArrayList<>();
+    longValues.add( Long.valueOf( 3 ) );
+    longValues.add( Long.valueOf( 13 ) );
+    longValues.add( Long.valueOf( 7 ) );
+    longValues.add( Long.valueOf( 5 ) );
+    longValues.add( Long.valueOf( 21 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 39 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 40 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 14 ) );
+    longValues.add( Long.valueOf( 12 ) );
+    longValues.add( Long.valueOf( 56 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 29 ) );
+
+    median = (Long) ValueDataUtil.percentile( metaInteger, longValues, 50.0, false );
+    assertTrue( metaInteger.compare( Long.valueOf( 23 ), median ) == 0 );
+
+    longValues = new ArrayList<>();
+    longValues.add( Long.valueOf( 3 ) );
+    longValues.add( Long.valueOf( 5 ) );
+    longValues.add( Long.valueOf( 7 ) );
+    longValues.add( Long.valueOf( 12 ) );
+    longValues.add( Long.valueOf( 13 ) );
+    longValues.add( Long.valueOf( 14 ) );
+    longValues.add( Long.valueOf( 21 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 29 ) );
+    longValues.add( Long.valueOf( 40 ) );
+    longValues.add( Long.valueOf( 56 ) );
+
+    median = (Long) ValueDataUtil.percentile( metaInteger, longValues, 50.0, false );
+    assertTrue( metaInteger.compare( Long.valueOf( 22 ), median ) == 0 );
+
+    longValues = new ArrayList<>();
+    longValues.add( Long.valueOf( 3 ) );
+    longValues.add( Long.valueOf( 13 ) );
+    longValues.add( Long.valueOf( 7 ) );
+    longValues.add( Long.valueOf( 5 ) );
+    longValues.add( Long.valueOf( 21 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 40 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 14 ) );
+    longValues.add( Long.valueOf( 12 ) );
+    longValues.add( Long.valueOf( 56 ) );
+    longValues.add( Long.valueOf( 23 ) );
+    longValues.add( Long.valueOf( 29 ) );
+
+    median = (Long) ValueDataUtil.percentile( metaInteger, longValues, 50.0, false );
+    assertTrue( metaInteger.compare( Long.valueOf( 22 ), median ) == 0 );
+  }
+
+  private void testMedianWithNumbers() throws KettleValueException {
+    ValueMetaInterface metaNumber = new ValueMetaNumber();
+    metaNumber.setName( "value_median" );
+
+    List<Double> doubleValues = new ArrayList<>();
+    doubleValues.add( Double.valueOf( 3.0 ) );
+    doubleValues.add( Double.valueOf( 13.1 ) );
+    doubleValues.add( Double.valueOf( 7.2 ) );
+    doubleValues.add( Double.valueOf( 5.3 ) );
+    doubleValues.add( Double.valueOf( 21.4 ) );
+    doubleValues.add( Double.valueOf( 23.5 ) );
+    doubleValues.add( Double.valueOf( 39.6 ) );
+    doubleValues.add( Double.valueOf( 23.7 ) );
+    doubleValues.add( Double.valueOf( 40.8 ) );
+    doubleValues.add( Double.valueOf( 23.9 ) );
+    doubleValues.add( Double.valueOf( 14.0 ) );
+    doubleValues.add( Double.valueOf( 12.1 ) );
+    doubleValues.add( Double.valueOf( 56.2 ) );
+    doubleValues.add( Double.valueOf( 23.3 ) );
+    doubleValues.add( Double.valueOf( 29.0 ) );
+
+    Double median = (Double) ValueDataUtil.percentile( metaNumber, doubleValues, 50.0, false );
+    assertTrue( metaNumber.compare( Double.valueOf( 23.3 ), median ) == 0 );
+
+    doubleValues = new ArrayList<>();
+    doubleValues.add( Double.valueOf( 3.0 ) );
+    doubleValues.add( Double.valueOf( 13.1 ) );
+    doubleValues.add( Double.valueOf( 7.2 ) );
+    doubleValues.add( Double.valueOf( 5.3 ) );
+    doubleValues.add( Double.valueOf( 21.4 ) );
+    doubleValues.add( Double.valueOf( 23.5 ) );
+    doubleValues.add( Double.valueOf( 23.7 ) );
+    doubleValues.add( Double.valueOf( 40.8 ) );
+    doubleValues.add( Double.valueOf( 23.9 ) );
+    doubleValues.add( Double.valueOf( 14.0 ) );
+    doubleValues.add( Double.valueOf( 12.1 ) );
+    doubleValues.add( Double.valueOf( 56.2 ) );
+    doubleValues.add( Double.valueOf( 23.3 ) );
+    doubleValues.add( Double.valueOf( 29.0 ) );
+
+    median = (Double) ValueDataUtil.percentile( metaNumber, doubleValues, 50.0, false );
+    assertTrue( metaNumber.compare( Double.valueOf( 22.35 ), median ) == 0 );
+  }
+
+  private void testMedianWithBigDecimals() throws KettleValueException {
+    ValueMetaInterface metaBigNumber = new ValueMetaBigNumber();
+    metaBigNumber.setName( "value_median" );
+    metaBigNumber.setLength( 15, 5 );
+
+    List<BigDecimal> values = new ArrayList<>();
+    values.add( new BigDecimal( 1234567890.24689 ).setScale( 5, 0 ) );
+    values.add( new BigDecimal( 1234567890.12345 ).setScale( 5, 0 ) );
+    values.add( new BigDecimal( 1234567890.54321 ).setScale( 5, 0 ) );
+
+    BigDecimal bigDecimal = (BigDecimal) ValueDataUtil.percentile( metaBigNumber, values, 50.0, false );
+    assertTrue( metaBigNumber.compare( new BigDecimal( 1234567890.24689 ).setScale( 5, 0 ), bigDecimal ) == 0 );
+
+    metaBigNumber = new ValueMetaBigNumber();
+    metaBigNumber.setName( "value_median" );
+    metaBigNumber.setLength( 15, 5 );
+
+    values = new ArrayList<>();
+    values.add( new BigDecimal( 1234567890.24689 ).setScale( 5, 0 ) );
+    values.add( new BigDecimal( 1234567890.12345 ).setScale( 5, 0 ) );
+    values.add( new BigDecimal( 1234567890.74563 ).setScale( 5, 0 ) );
+    values.add( new BigDecimal( 1234567890.54321 ).setScale( 5, 0 ) );
+
+    bigDecimal = (BigDecimal) ValueDataUtil.percentile( metaBigNumber, values, 50.0, false );
+    assertTrue( metaBigNumber.compare( new BigDecimal( 1234567890.39505 ).setScale( 5, 0 ), bigDecimal ) == 0 );
+  }
+
+  @Test
+  public void testPercentile() throws KettleValueException {
+    testMedianPercentileWithIntegers( );
+    //testMedianWithNumbers();
+    //testMedianWithBigDecimals();
+  }
+
+  private void testMedianPercentileWithIntegers() throws KettleValueException {
+    ValueMetaInterface metaInteger = new ValueMetaInteger();
+    ValueMetaInterface metaNumber = new ValueMetaNumber();
+    metaInteger.setName( "value_percentile" );
+
+    List<Long> values = new ArrayList<>();
+    values.add( Long.valueOf( 15 ) );
+    values.add( Long.valueOf( 20 ) );
+    values.add( Long.valueOf( 35 ) );
+    values.add( Long.valueOf( 40 ) );
+    values.add( Long.valueOf( 50 ) );
+
+
+    Number median = (Long) ValueDataUtil.percentile( metaInteger, values, 5.0, false );
+    assertTrue( metaInteger.compare( Long.valueOf( 15 ), median ) == 0 );
+
+    median = (Long) ValueDataUtil.percentile( metaInteger, values, 30.0, false );
+    assertTrue( metaInteger.compare( Long.valueOf( 20 ), median ) == 0 );
+
+    median = (Double) ValueDataUtil.percentile( metaInteger, values, 40.0, false );
+    assertTrue( metaNumber.compare( Double.valueOf( 27.5 ), median ) == 0 );
+
+    median = (Long) ValueDataUtil.percentile( metaInteger, values, 50.0, false );
+    assertTrue( metaInteger.compare( Long.valueOf( 35 ), median ) == 0 );
+
+    median = (Long) ValueDataUtil.percentile( metaInteger, values, 95.0, false );
+    assertTrue( metaInteger.compare( Long.valueOf( 50 ), median ) == 0 );
+  }
+
+  @Test
+  public void testPercentileNearestRank() throws KettleValueException {
+    testMedianPercentileNearestRankWithIntegers( );
+    //testMedianWithNumbers();
+    //testMedianWithBigDecimals();
+  }
+
+  private void testMedianPercentileNearestRankWithIntegers() throws KettleValueException {
+    ValueMetaInterface metaInteger = new ValueMetaInteger();
+    metaInteger.setName( "value_percentile" );
+
+    List<Long> values = new ArrayList<>();
+    values.add( Long.valueOf( 15 ) );
+    values.add( Long.valueOf( 20 ) );
+    values.add( Long.valueOf( 35 ) );
+    values.add( Long.valueOf( 40 ) );
+    values.add( Long.valueOf( 50 ) );
+
+    Object median = ValueDataUtil.percentile( metaInteger, values, 5.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 15 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 30.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 20 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 40.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 20 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 50.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 35 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 100.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 50 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    values = new ArrayList<>();
+    values.add( Long.valueOf( 3 ) );
+    values.add( Long.valueOf( 6 ) );
+    values.add( Long.valueOf( 7 ) );
+    values.add( Long.valueOf( 8 ) );
+    values.add( Long.valueOf( 8 ) );
+    values.add( Long.valueOf( 10 ) );
+    values.add( Long.valueOf( 13 ) );
+    values.add( Long.valueOf( 15 ) );
+    values.add( Long.valueOf( 16 ) );
+    values.add( Long.valueOf( 20 ) );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 25.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 7 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 50.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 8 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 75.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 15 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 100.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 20 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    values = new ArrayList<>();
+    values.add( Long.valueOf( 3 ) );
+    values.add( Long.valueOf( 6 ) );
+    values.add( Long.valueOf( 7 ) );
+    values.add( Long.valueOf( 8 ) );
+    values.add( Long.valueOf( 8 ) );
+    values.add( Long.valueOf( 9 ) );
+    values.add( Long.valueOf( 10 ) );
+    values.add( Long.valueOf( 13 ) );
+    values.add( Long.valueOf( 15 ) );
+    values.add( Long.valueOf( 16 ) );
+    values.add( Long.valueOf( 20 ) );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 25.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 7 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 50.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 9 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 75.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 15 ), metaInteger.getInteger(  median ) ) == 0 );
+
+    median = ValueDataUtil.percentile( metaInteger, values, 100.0, true );
+    assertTrue( metaInteger.compare( Long.valueOf( 20 ), metaInteger.getInteger(  median ) ) == 0 );
   }
 }
