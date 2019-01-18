@@ -37,7 +37,7 @@ import org.pentaho.di.ui.spoon.tree.TreeFolderProvider;
 /**
  * Created by bmorrise on 6/28/18.
  */
-public class DBConnectionFolderProvider extends TreeFolderProvider {
+public class DBConnectionFolderProvider extends AutomaticTreeFolderProvider {
 
   private static Class<?> PKG = Spoon.class;
   public static final String STRING_CONNECTIONS = BaseMessages.getString( PKG, "Spoon.STRING_CONNECTIONS" );
