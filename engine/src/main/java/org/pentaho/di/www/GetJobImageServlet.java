@@ -2,7 +2,7 @@
  *
  * Pentaho Data Integration
  *
- * Copyright (C) 2002-2017 by Hitachi Vantara : http://www.pentaho.com
+ * Copyright (C) 2002-2019 by Hitachi Vantara : http://www.pentaho.com
  *
  *******************************************************************************
  *
@@ -26,6 +26,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 
 import javax.imageio.ImageIO;
@@ -33,6 +34,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.xmlbeans.impl.piccolo.util.DuplicateKeyException;
+import org.owasp.encoder.Encode;
 import org.pentaho.di.core.gui.AreaOwner;
 import org.pentaho.di.core.gui.Point;
 import org.pentaho.di.core.gui.SwingGC;
@@ -136,14 +139,20 @@ public class GetJobImageServlet extends BaseHttpServlet implements CartePluginIn
     String jobName = request.getParameter( "name" );
     String id = request.getParameter( "id" );
 
+    boolean useXML = "Y".equalsIgnoreCase( request.getParameter( "xml" ) );
+
     // ID is optional...
     //
     Job job;
-    CarteObjectEntry entry;
+    CarteObjectEntry entry = null;
     if ( Utils.isEmpty( id ) ) {
-      // get the first transformation that matches...
-      //
-      entry = getJobMap().getFirstCarteObjectEntry( jobName );
+
+      try {
+        entry = getJobMap().getUniqueCarteObjectEntry( jobName );
+      } catch ( DuplicateKeyException e ) {
+        buildDuplicateResponse( response, jobName, useXML );
+      }
+
       if ( entry == null ) {
         job = null;
       } else {
@@ -181,6 +190,27 @@ public class GetJobImageServlet extends BaseHttpServlet implements CartePluginIn
 
       }
     } catch ( Exception e ) {
+      e.printStackTrace();
+    }
+  }
+
+  private void buildDuplicateResponse( HttpServletResponse response, String jobName, boolean useXML ) {
+    String message = BaseMessages.getString( PKG, "GetJobImageServlet.Error.DuplicateJobName", jobName );
+
+    PrintWriter out;
+    try {
+      out = response.getWriter();
+      if ( useXML ) {
+        out.println( new WebResult( WebResult.STRING_ERROR, message ) );
+      } else {
+        out.println( "<H1>" + Encode.forHtml( message ) + "</H1>" );
+        out.println( "<a href=\""
+          + convertContextPath( GetStatusServlet.CONTEXT_PATH ) + "\">"
+          + BaseMessages.getString( PKG, "TransStatusServlet.BackToStatusPage" ) + "</a><p>" );
+        response.setStatus( HttpServletResponse.SC_CONFLICT );
+      }
+
+    } catch ( IOException e ) {
       e.printStackTrace();
     }
   }
