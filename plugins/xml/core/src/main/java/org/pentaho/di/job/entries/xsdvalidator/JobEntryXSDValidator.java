@@ -32,7 +32,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-import javax.xml.XMLConstants;
 import javax.xml.transform.Source;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
@@ -65,6 +64,7 @@ import org.pentaho.di.resource.ResourceEntry.ResourceType;
 import org.pentaho.di.resource.ResourceReference;
 import org.pentaho.metastore.api.IMetaStore;
 import org.w3c.dom.Node;
+import org.xml.sax.EntityResolver;
 import org.xml.sax.SAXException;
 
 /**
@@ -190,8 +190,11 @@ public class JobEntryXSDValidator extends JobEntryBase implements Cloneable, Job
           // Prevent against XML Entity Expansion (XEE) attacks.
           // https://www.owasp.org/index.php/XML_Security_Cheat_Sheet#XML_Entity_Expansion
           if ( !isAllowExternalEntities() ) {
-            xsdValidator.setProperty( XMLConstants.ACCESS_EXTERNAL_DTD, "" );
-            xsdValidator.setProperty( XMLConstants.ACCESS_EXTERNAL_SCHEMA, "" );
+            xsdValidator.setProperty( "http://apache.org/xml/properties/internal/entity-resolver",
+              (EntityResolver) ( publicId, systemId ) -> {
+                throw new SAXException( "DOCTYPE is disallowed when the feature http://apache.org/xml/features/disallow-doctype-decl "
+                  + "set to true." );
+              } );
           }
 
           // Get XML File

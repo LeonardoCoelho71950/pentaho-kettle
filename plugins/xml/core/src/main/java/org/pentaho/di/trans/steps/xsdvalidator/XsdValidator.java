@@ -47,6 +47,7 @@ import org.pentaho.di.trans.step.StepDataInterface;
 import org.pentaho.di.trans.step.StepInterface;
 import org.pentaho.di.trans.step.StepMeta;
 import org.pentaho.di.trans.step.StepMetaInterface;
+import org.xml.sax.EntityResolver;
 import org.xml.sax.SAXException;
 
 /**
@@ -236,8 +237,11 @@ public class XsdValidator extends BaseStep implements StepInterface {
         // Prevent against XML Entity Expansion (XEE) attacks.
         // https://www.owasp.org/index.php/XML_Security_Cheat_Sheet#XML_Entity_Expansion
         if ( !meta.isAllowExternalEntities() ) {
-          xsdValidator.setProperty( XMLConstants.ACCESS_EXTERNAL_DTD, "" );
-          xsdValidator.setProperty( XMLConstants.ACCESS_EXTERNAL_SCHEMA, "" );
+          xsdValidator.setProperty( "http://apache.org/xml/properties/internal/entity-resolver",
+            (EntityResolver) ( publicId, systemId ) -> {
+              throw new SAXException( "DOCTYPE is disallowed when the feature http://apache.org/xml/features/disallow-doctype-decl "
+                + "set to true." );
+            } );
         }
 
         // Validate XML / XSD
