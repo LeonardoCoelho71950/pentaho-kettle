@@ -40,6 +40,7 @@ import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
 import org.apache.commons.vfs2.FileObject;
+import org.apache.xerces.xni.parser.XMLEntityResolver;
 import org.pentaho.di.cluster.SlaveServer;
 import org.pentaho.di.core.CheckResultInterface;
 import org.pentaho.di.core.Const;
@@ -190,8 +191,14 @@ public class JobEntryXSDValidator extends JobEntryBase implements Cloneable, Job
           // Prevent against XML Entity Expansion (XEE) attacks.
           // https://www.owasp.org/index.php/XML_Security_Cheat_Sheet#XML_Entity_Expansion
           if ( !isAllowExternalEntities() ) {
-            xsdValidator.setProperty( XMLConstants.ACCESS_EXTERNAL_DTD, "" );
-            xsdValidator.setProperty( XMLConstants.ACCESS_EXTERNAL_SCHEMA, "" );
+            xsdValidator.setFeature( "http://apache.org/xml/features/disallow-doctype-decl", true );
+            xsdValidator.setFeature( "http://xml.org/sax/features/external-general-entities", false );
+            xsdValidator.setFeature( "http://xml.org/sax/features/external-parameter-entities", false );
+            xsdValidator.setProperty( "http://apache.org/xml/properties/internal/entity-resolver",
+              (XMLEntityResolver) xmlResourceIdentifier -> {
+                throw new IOException( "DOCTYPE is disallowed when the feature http://apache.org/xml/features/disallow-doctype-decl "
+                  + "set to true." );
+              } );
           }
 
           // Get XML File
