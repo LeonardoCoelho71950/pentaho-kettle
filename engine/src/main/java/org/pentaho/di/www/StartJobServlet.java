@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URLEncoder;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -164,8 +165,6 @@ public class StartJobServlet extends BaseHttpServlet implements CartePluginInter
     String id = request.getParameter( "id" );
     boolean useXML = "Y".equalsIgnoreCase( request.getParameter( "xml" ) );
 
-    response.setStatus( HttpServletResponse.SC_OK );
-
     PrintWriter out = response.getWriter();
     if ( useXML ) {
       response.setContentType( "text/xml" );
@@ -184,106 +183,136 @@ public class StartJobServlet extends BaseHttpServlet implements CartePluginInter
       out.println( "<BODY>" );
     }
 
-    try {
-      // ID is optional...
+    // ID is optional...
+    //
+    Job job;
+    CarteObjectEntry entry;
+    if ( Utils.isEmpty( id ) ) {
+      // get the first job that matches...
       //
-      Job job;
-      CarteObjectEntry entry;
-      if ( Utils.isEmpty( id ) ) {
-        // get the first job that matches...
-        //
-        entry = getJobMap().getFirstCarteObjectEntry( jobName );
-        if ( entry == null ) {
-          job = null;
-        } else {
-          id = entry.getId();
-          job = getJobMap().getJob( entry );
-        }
+      entry = getJobMap().getFirstCarteObjectEntry( jobName );
+      if ( entry == null ) {
+        job = null;
       } else {
-        // Take the ID into account!
-        //
-        entry = new CarteObjectEntry( jobName, id );
+        id = entry.getId();
         job = getJobMap().getJob( entry );
       }
+    } else {
+      // Take the ID into account!
+      //
+      entry = new CarteObjectEntry( jobName, id );
+      job = getJobMap().getJob( entry );
+    }
 
-      if ( job != null ) {
-        // First see if this job already ran to completion.
-        // If so, we get an exception is we try to start() the job thread
+    if ( job != null ) {
+      // First see if this job already ran to completion.
+      // If so, we get an exception is we try to start() the job thread
+      //
+      if ( job.isInitialized() && !job.isActive() ) {
+        // Re-create the job from the jobMeta
         //
-        if ( job.isInitialized() && !job.isActive() ) {
-          // Re-create the job from the jobMeta
-          //
-          // We might need to re-connect to the repository
-          //
-          if ( job.getRep() != null && !job.getRep().isConnected() ) {
+        // We might need to re-connect to the repository
+        //
+        if ( job.getRep() != null && !job.getRep().isConnected() ) {
+
+          try {
             if ( job.getRep().getUserInfo() != null ) {
               job.getRep().connect(
                 job.getRep().getUserInfo().getLogin(), job.getRep().getUserInfo().getPassword() );
             } else {
               job.getRep().connect( null, null );
             }
+          } catch ( KettleRepositoryNotFoundException krnfe ) {
+            // Repository not found.
+            response.setStatus( HttpServletResponse.SC_NOT_FOUND );
+            String message = BaseMessages.getString( PKG, "ExecuteJobServlet.Error.UnableToFindRepository", repOption );
+            out.println( new WebResult( WebResult.STRING_ERROR, message ) );
+            return;
+          } catch ( KettleException ke ) {
+            // Authentication Error.
+            if (  ke.getCause() instanceof ExecutionException ) {
+              ExecutionException ee = (ExecutionException) ke.getCause();
+              if (  ee.getCause() instanceof KettleAuthenticationException ) {
+                response.setStatus( HttpServletResponse.SC_UNAUTHORIZED );
+                String message = BaseMessages.getString( PKG, "StartJobServlet.Error.Authentication", getContextPath() );
+                out.println( new WebResult( WebResult.STRING_ERROR, message ) );
+                return;
+              }
+            }
+
+            // Something unexpected occurred.
+            response.setStatus( HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
+            String message = BaseMessages.getString(
+              PKG, "StartJobServlet.Error.UnexpectedError", Const.CR + Const.getStackTracker( ke ) );
+            out.println( new WebResult( WebResult.STRING_ERROR, message ) );
+            return;
           }
 
-          cache.remove( job.getLogChannelId() );
+        }
 
-          // Create a new job object to start from a sane state. Then replace
-          // the new job in the job map
+        cache.remove( job.getLogChannelId() );
+
+        // Create a new job object to start from a sane state. Then replace
+        // the new job in the job map
+        //
+        synchronized ( this ) {
+          JobConfiguration jobConfiguration = getJobMap().getConfiguration( jobName );
+
+          String carteObjectId = UUID.randomUUID().toString();
+          SimpleLoggingObject servletLoggingObject =
+            new SimpleLoggingObject( CONTEXT_PATH, LoggingObjectType.CARTE, null );
+          servletLoggingObject.setContainerObjectId( carteObjectId );
+
+          Job newJob = new Job( job.getRep(), job.getJobMeta(), servletLoggingObject );
+          newJob.setLogLevel( job.getLogLevel() );
+
+          // Discard old log lines from the old job
           //
-          synchronized ( this ) {
-            JobConfiguration jobConfiguration = getJobMap().getConfiguration( jobName );
+          KettleLogStore.discardLines( job.getLogChannelId(), true );
 
-            String carteObjectId = UUID.randomUUID().toString();
-            SimpleLoggingObject servletLoggingObject =
-              new SimpleLoggingObject( CONTEXT_PATH, LoggingObjectType.CARTE, null );
-            servletLoggingObject.setContainerObjectId( carteObjectId );
-
-            Job newJob = new Job( job.getRep(), job.getJobMeta(), servletLoggingObject );
-            newJob.setLogLevel( job.getLogLevel() );
-
-            // Discard old log lines from the old job
-            //
-            KettleLogStore.discardLines( job.getLogChannelId(), true );
-
-            getJobMap().replaceJob( entry, newJob, jobConfiguration );
-            job = newJob;
-          }
-        }
-
-        runJob( job );
-
-        String message = BaseMessages.getString( PKG, "StartJobServlet.Log.JobStarted", jobName );
-        if ( useXML ) {
-          out.println( new WebResult( WebResult.STRING_OK, message, id ).getXML() );
-        } else {
-
-          out.println( "<H1>" + Encode.forHtml( message ) + "</H1>" );
-          out.println( "<a href=\""
-            + convertContextPath( GetJobStatusServlet.CONTEXT_PATH ) + "?name="
-            + URLEncoder.encode( jobName, "UTF-8" ) + "&id=" + URLEncoder.encode( id, "UTF-8" ) + "\">"
-            + BaseMessages.getString( PKG, "JobStatusServlet.BackToJobStatusPage" ) + "</a><p>" );
-        }
-      } else {
-        String message = BaseMessages.getString( PKG, "StartJobServlet.Log.SpecifiedJobNotFound", jobName );
-        if ( useXML ) {
-          out.println( new WebResult( WebResult.STRING_ERROR, message ) );
-        } else {
-          out.println( "<H1>" + Encode.forHtml( message ) + "</H1>" );
-          out.println( "<a href=\""
-            + convertContextPath( GetStatusServlet.CONTEXT_PATH ) + "\">"
-            + BaseMessages.getString( PKG, "TransStatusServlet.BackToStatusPage" ) + "</a><p>" );
-          response.setStatus( HttpServletResponse.SC_BAD_REQUEST );
+          getJobMap().replaceJob( entry, newJob, jobConfiguration );
+          job = newJob;
         }
       }
-    } catch ( Exception ex ) {
+
+      try {
+        runJob( job );
+      } catch ( Exception executionException ) {
+        // Something went wrong while running the job.
+        response.setStatus( HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
+
+        String logging = KettleLogStore.getAppender().getBuffer( job.getLogChannelId(), false ).toString();
+        String message = BaseMessages.getString( PKG, "StartJobServlet.Error.WhileExecutingJob", job.getName(), logging );
+        out.println( new WebResult( WebResult.STRING_ERROR, message ) );
+
+        return;
+      }
+
+      String message = BaseMessages.getString( PKG, "StartJobServlet.Log.JobStarted", jobName );
       if ( useXML ) {
-        out.println( new WebResult( WebResult.STRING_ERROR, BaseMessages.getString(
-          PKG, "StartJobServlet.Error.UnexpectedError", Const.CR + Const.getStackTracker( ex ) ) ) );
+        out.println( new WebResult( WebResult.STRING_OK, message, id ).getXML() );
       } else {
-        out.println( "<p>" );
-        out.println( "<pre>" );
-        out.println( Encode.forHtml( Const.getStackTracker( ex ) ) );
-        out.println( "</pre>" );
-        response.setStatus( HttpServletResponse.SC_BAD_REQUEST );
+
+        out.println( "<H1>" + Encode.forHtml( message ) + "</H1>" );
+        out.println( "<a href=\""
+          + convertContextPath( GetJobStatusServlet.CONTEXT_PATH ) + "?name="
+          + URLEncoder.encode( jobName, "UTF-8" ) + "&id=" + URLEncoder.encode( id, "UTF-8" ) + "\">"
+          + BaseMessages.getString( PKG, "JobStatusServlet.BackToJobStatusPage" ) + "</a><p>" );
+      }
+
+      response.setStatus( HttpServletResponse.SC_OK );
+    } else {
+      // Job Not Found.
+      response.setStatus( HttpServletResponse.SC_NOT_FOUND );
+
+      String message = BaseMessages.getString( PKG, "StartJobServlet.Log.SpecifiedJobNotFound", jobName );
+      if ( useXML ) {
+        out.println( new WebResult( WebResult.STRING_ERROR, message ) );
+      } else {
+        out.println( "<H1>" + Encode.forHtml( message ) + "</H1>" );
+        out.println( "<a href=\""
+          + convertContextPath( GetStatusServlet.CONTEXT_PATH ) + "\">"
+          + BaseMessages.getString( PKG, "TransStatusServlet.BackToStatusPage" ) + "</a><p>" );
       }
     }
 
