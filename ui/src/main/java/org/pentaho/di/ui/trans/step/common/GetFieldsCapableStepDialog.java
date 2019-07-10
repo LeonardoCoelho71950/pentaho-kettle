@@ -114,7 +114,33 @@ public interface GetFieldsCapableStepDialog<StepMetaType extends BaseStepMeta> {
   default void getFields( final StepMetaType meta ) {
 
     final String[] incomingFieldNames = getFieldNames( meta );
-    final List<String> newFieldNames = getNewFieldNames( incomingFieldNames );
+    List<String> newFieldNames = getNewFieldNames( incomingFieldNames );
+
+    for ( String newField : newFieldNames ) {
+      if ( Arrays.stream( incomingFieldNames ).anyMatch( newField::equals ) ) {
+        final int[] count = { 0 };
+        newFieldNames.replaceAll( field -> {
+          if ( field.equals( newField ) ) {
+            field = newField + '_' + count[ 0 ];
+            count[ 0 ]++;
+          }
+          return field;
+        } );
+      }
+    }
+
+    if ( newFieldNames.size() != new HashSet<>( newFieldNames ).size() ) {
+      List<String> set = new ArrayList();
+      for ( String str : newFieldNames ) {
+        String value = str;
+        // Iterate as long as you can't add the value indicating that we have
+        // already the value in the set
+        for ( int i = 1; !set.add( value ); i++ ) {
+          value = str + '_' + i;
+        }
+      }
+      newFieldNames = set;
+    }
 
     if ( newFieldNames != null && newFieldNames.size() > 0 ) {
       // we have new incoming fields
